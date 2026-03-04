@@ -1,3 +1,7 @@
 @import "tailwindcss";
 
 /* Custom portfolio styles */
+
+* {
+  cursor: none !important;
+}

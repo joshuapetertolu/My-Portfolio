@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/purity */
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import { useEffect, useMemo, useState } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Lenis from "lenis";
+import * as THREE from "three";
 import {
   motion,
   AnimatePresence,
@@ -13,9 +13,196 @@ import {
   animate,
 } from "framer-motion";
 
-const PhoneWireframe = () => {
+const CustomCursor = () => {
+  const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
+  const [isHovering, setIsHovering] = useState(false);
+  const [hoverText, setHoverText] = useState("");
+  const [isClicked, setIsClicked] = useState(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+
+      const target = e.target as HTMLElement;
+      // Find closest interactive element
+      const interactive = target.closest(
+        "button, a, input, [data-interactive='true'], .group\\/dock button, .group\\/portrait",
+      );
+
+      if (interactive) {
+        setIsHovering(true);
+        // Extract text to show in tooltip
+        let text = "INTERACT";
+        if (interactive.tagName.toLowerCase() === "input") {
+          text = "INPUT_FIELD";
+        } else {
+          const content = interactive.textContent
+            ?.replace(/[[\]]/g, "")
+            .trim()
+            .split(" ")[0];
+          text = content || "EXECUTE";
+        }
+        setHoverText(`>_ EXECUTE: ${text}`);
+      } else {
+        setIsHovering(false);
+      }
+    };
+
+    const handleMouseDown = () => setIsClicked(true);
+    const handleMouseUp = () => setIsClicked(false);
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
   return (
-    <group rotation={[0.2, 0.5, 0]}>
+    <>
+      <motion.div
+        className="fixed top-0 left-0 pointer-events-none z-[9999] flex items-center justify-center mix-blend-difference"
+        animate={{
+          x: mousePos.x - 8,
+          y: mousePos.y - 8,
+        }}
+        transition={{ type: "tween", ease: "backOut", duration: 0.1 }}
+      >
+        <div className="relative w-4 h-4 flex items-center justify-center">
+          {!isHovering ? (
+            <>
+              <div className="absolute top-1/2 left-0 w-full h-[1px] bg-[#61DAFB] shadow-[0_0_8px_#61DAFB] -translate-y-1/2"></div>
+              <div className="absolute left-1/2 top-0 w-[1px] h-full bg-[#61DAFB] shadow-[0_0_8px_#61DAFB] -translate-x-1/2"></div>
+            </>
+          ) : (
+            <motion.div
+              initial={{ scale: 0.5 }}
+              animate={{ scale: 1 }}
+              className="w-full h-full bg-[#CCFF00] rounded-full shadow-[0_0_15px_#CCFF00]"
+            />
+          )}
+
+          <AnimatePresence>
+            {isClicked && (
+              <motion.div
+                initial={{ scale: 0, opacity: 1 }}
+                animate={{ scale: 3, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="absolute shrink-0 border border-[#CCFF00] rounded-full w-10 h-10"
+              />
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+
+      <motion.div
+        className="fixed top-0 left-0 pointer-events-none z-[9998]"
+        animate={{
+          x: mousePos.x + 10,
+          y: mousePos.y + 10,
+        }}
+        transition={{ type: "tween", ease: "backOut", duration: 0.15 }}
+      >
+        <div className="px-2 py-1 bg-[#050505]/60 backdrop-blur-md rounded border border-white/10 shadow-lg mt-2 ml-2">
+          {!isHovering ? (
+            <span className="font-mono text-[10px] text-[#888888] tracking-widest whitespace-nowrap">
+              [x: {mousePos.x.toString().padStart(4, "0")}, y:{" "}
+              {mousePos.y.toString().padStart(4, "0")}]
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] text-[#FFFFFF] tracking-widest whitespace-nowrap font-bold">
+              {hoverText}
+            </span>
+          )}
+        </div>
+      </motion.div>
+    </>
+  );
+};
+
+const FluidSimulation = () => {
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+      // Smoothly interpolate mouse position for fluid effect
+      materialRef.current.uniforms.uMouse.value.lerp(
+        new THREE.Vector2(state.pointer.x, state.pointer.y),
+        0.05,
+      );
+    }
+  });
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector2(0, 0) },
+    }),
+    [],
+  );
+
+  return (
+    <mesh position={[0, 0, -5]}>
+      <planeGeometry args={[100, 100, 128, 128]} />
+      <shaderMaterial
+        ref={materialRef}
+        uniforms={uniforms}
+        vertexShader={`
+          uniform float uTime;
+          uniform vec2 uMouse;
+          varying vec2 vUv;
+          varying float vElevation;
+          
+          void main() {
+            vUv = uv;
+            vec3 pos = position;
+            
+            float dist = distance(uv, vec2(uMouse.x * 0.5 + 0.5, uMouse.y * 0.5 + 0.5));
+            float ripple = sin(dist * 50.0 - uTime * 5.0) * exp(-dist * 10.0);
+            
+            pos.z += ripple * 0.5;
+            vElevation = ripple;
+            
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+          }
+        `}
+        fragmentShader={`
+          varying vec2 vUv;
+          varying float vElevation;
+          
+          void main() {
+            vec3 baseColor = vec3(0.00, 0.00, 0.00); 
+            vec3 highlightColor = vec3(0.03, 0.05, 0.05); 
+            
+            float mixFactor = (vElevation + 1.0) * 0.5;
+            vec3 finalColor = mix(baseColor, highlightColor, smoothstep(0.45, 0.55, mixFactor));
+            
+            gl_FragColor = vec4(finalColor, 1.0);
+          }
+        `}
+        wireframe={false}
+      />
+    </mesh>
+  );
+};
+
+const PhoneWireframe = () => {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame((state, delta) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += delta * 0.5;
+    }
+  });
+
+  return (
+    <group ref={groupRef} rotation={[0.2, 0.5, 0]}>
       <mesh>
         <boxGeometry args={[2.5, 5, 0.2]} />
         <meshBasicMaterial
@@ -29,7 +216,13 @@ const PhoneWireframe = () => {
   );
 };
 
-const MobileLanding = ({ onUnlock }: { onUnlock: () => void }) => {
+const MobileLanding = ({
+  onUnlock,
+}: {
+  onUnlock: (id?: number | null) => void;
+}) => {
+  const [isFluidOn, setIsFluidOn] = useState(true);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -38,27 +231,39 @@ const MobileLanding = ({ onUnlock }: { onUnlock: () => void }) => {
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       className="relative w-full h-screen bg-black text-white overflow-hidden font-sans select-none"
     >
-      {/* 3D Background: Ghostly Wireframe Device */}
+      {/* 3D Background: Ghostly Wireframe Device & Liquid Ripple */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <Canvas camera={{ position: [0, 0, 6] }}>
           <ambientLight intensity={0.5} />
+          {isFluidOn && <FluidSimulation />}
           <PhoneWireframe />
-          <OrbitControls
-            enableZoom={false}
-            enablePan={false}
-            autoRotate
-            autoRotateSpeed={0.5}
-          />
         </Canvas>
       </div>
 
-      {/* TOP SECTION: THE FLUID ISLAND */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
-        <div className="px-5 py-2 rounded-full border border-[#CCFF00] backdrop-blur-xl bg-[#111111]/80 shadow-[0_0_15px_rgba(204,255,0,0.2)] flex items-center justify-center gap-2">
-          <div className="w-1.5 h-1.5 bg-[#CCFF00] rounded-full animate-pulse shadow-[0_0_8px_rgba(204,255,0,0.8)]"></div>
-          <span className="font-mono text-[10px] sm:text-xs tracking-widest text-[#FFFFFF] uppercase mt-0.5 whitespace-nowrap">
-            JOSHUA PETER T. // SYSTEM_READY
-          </span>
+      {/* TOP SECTION: THE SPATIAL GLASS DOCK (NAVIGATION) */}
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center w-full max-w-3xl px-4">
+        <div className="flex w-full items-center justify-between px-8 py-4 rounded-[2rem] border border-white/10 backdrop-blur-3xl bg-[#050505]/40 shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-[#CCFF00]/50 group/dock">
+          {[
+            { id: null, label: "APP_LIBRARY", num: "01" },
+            { id: 991, label: "SYSTEM_SPECS", num: "02" },
+            { id: 6, label: "THE_ORIGIN", num: "03" },
+            { id: 992, label: "TERMINAL", num: "04" },
+          ].map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                onUnlock(item.id);
+              }}
+              className="group relative flex items-center gap-2 transition-transform duration-300 hover:scale-110 hover:-translate-y-1 outline-none cursor-pointer"
+            >
+              <span className="font-mono text-[10px] text-white/30 tracking-widest group-hover:text-[#CCFF00] transition-colors duration-300">
+                [ {item.num}:
+              </span>
+              <span className="font-mono text-[10px] sm:text-[11px] font-bold tracking-widest text-white/70 uppercase group-hover:text-[#FFFFFF] group-hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-300 whitespace-nowrap">
+                {item.label} ]
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -83,19 +288,48 @@ const MobileLanding = ({ onUnlock }: { onUnlock: () => void }) => {
       {/* BOTTOM SECTION: THE ENTRY GESTURE */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-full flex flex-col items-center justify-center pointer-events-auto">
         <span className="font-mono text-[9px] uppercase tracking-widest text-[#888888] mb-3 pointer-events-none">
-          Drag up to unlock session
+          Drag up to enter APP_LIBRARY
         </span>
         <motion.div
           drag="y"
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={0.2}
-          onDragEnd={(e, info) => {
+          onDragEnd={(_, info) => {
             if (info.offset.y < -50) {
               onUnlock();
             }
           }}
           className="w-32 h-1.5 bg-white rounded-full shadow-[0_4px_15px_rgba(204,255,0,0.5)] active:shadow-[0_4px_25px_rgba(204,255,0,0.9)] active:scale-95 transition-all duration-300 cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-[0_4px_25px_rgba(204,255,0,0.9)]"
         ></motion.div>
+      </div>
+
+      {/* BOTTOM LEFT: THE PHYSICS TOGGLE */}
+      <div className="absolute bottom-8 left-8 z-30 flex items-center gap-3 pointer-events-auto">
+        <button
+          onClick={() => setIsFluidOn(!isFluidOn)}
+          className="w-10 h-10 rounded-full border border-white/20 bg-[#050505]/60 backdrop-blur-xl flex items-center justify-center hover:bg-[#CCFF00]/10 hover:border-[#CCFF00]/50 transition-colors group outline-none"
+        >
+          {isFluidOn ? (
+            <svg
+              viewBox="0 0 24 24"
+              className="w-4 h-4 text-[#CCFF00] group-hover:scale-110 transition-transform"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 12h2l3 -6 4 12 3 -6h6"
+              />
+            </svg>
+          ) : (
+            <div className="w-1.5 h-1.5 rounded-full bg-[#888888] group-hover:bg-white transition-colors" />
+          )}
+        </button>
+        <span className="font-mono text-[9px] tracking-widest text-[#888888] uppercase pointer-events-none">
+          [ FLUID_SIM // {isFluidOn ? "ON" : "OFF"} ]
+        </span>
       </div>
     </motion.div>
   );
@@ -2827,7 +3061,15 @@ function MainApp() {
       {unlocked && <FluidIsland onNavigate={setSelectedProjectId} />}
       <AnimatePresence mode="wait">
         {!unlocked ? (
-          <MobileLanding key="landing" onUnlock={() => setUnlocked(true)} />
+          <MobileLanding
+            key="landing"
+            onUnlock={(id) => {
+              if (id !== undefined) {
+                setSelectedProjectId(id);
+              }
+              setUnlocked(true);
+            }}
+          />
         ) : selectedProjectId === null ? (
           <AppLibrary key="library" onSelectProject={setSelectedProjectId} />
         ) : selectedProjectId === 1 ? (
@@ -2884,6 +3126,7 @@ function App() {
 
   return (
     <Router>
+      <CustomCursor />
       <Routes>
         <Route path="/" element={<MainApp />} />
       </Routes>
