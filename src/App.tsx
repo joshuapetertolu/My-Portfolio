@@ -2929,9 +2929,6 @@ const SystemIdentityTerminal = ({ onClose }: { onClose: () => void }) => {
       <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 w-[80%] max-w-4xl flex flex-col items-center">
         {/* Emoji Visual & Slider Container */}
         <div className="relative w-full flex justify-center mt-2">
-          <span className="absolute -top-12 text-4xl z-40 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] animate-bounce pointer-events-none">
-            🚀
-          </span>
           <div className="relative w-full h-20 bg-[#111111] rounded-[40px] flex items-center border border-[#333333] shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] mx-4 md:mx-0">
             <span
               className={`absolute inset-0 flex items-center justify-center text-sm md:text-base font-bold font-sans tracking-[0.2em] pointer-events-none z-0 transition-colors duration-300 ${
