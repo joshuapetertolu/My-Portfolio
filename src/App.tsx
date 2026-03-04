@@ -2835,7 +2835,7 @@ const SystemIdentityTerminal = ({ onClose }: { onClose: () => void }) => {
             onMouseLeave={() => setIsHovered(false)}
           >
             <h2 className="text-[#FFFFFF] font-sans font-bold text-lg tracking-widest uppercase mb-6 opacity-90">
-              SYSTEM_ARCHITECT // [YOUR NAME]
+              SYSTEM_ARCHITECT // [JOSHUA PETER T.]
             </h2>
             <ul className="text-[#AAAAAA] font-mono text-xs flex flex-col gap-4 max-w-[280px]">
               <li>
