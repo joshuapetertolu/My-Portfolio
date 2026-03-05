@@ -13,6 +13,45 @@ import {
   animate,
 } from "framer-motion";
 
+const Preloader = () => {
+  return (
+    <motion.div
+      className="fixed inset-0 z-[10000] bg-[#000000] flex items-center justify-center font-sans select-none"
+      exit={{ opacity: 0, y: "-100%" }}
+      transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <div className="flex items-center justify-center -mt-10">
+        <span
+          className="text-[25vw] md:text-[20vw] leading-none font-black text-[#FFFFFF] tracking-tighter uppercase"
+          style={{ fontStretch: "condensed" }}
+        >
+          J
+        </span>
+        <div className="relative flex flex-col items-center">
+          {/* Subtle Spinner directly above the P */}
+          <div className="absolute -top-4 md:-top-8 w-6 h-6 md:w-8 md:h-8">
+            <motion.div
+              className="w-full h-full rounded-full border-[1px] border-t-transparent border-[#888888]"
+              animate={{ rotate: 360 }}
+              transition={{
+                duration: 1,
+                ease: "linear",
+                repeat: Infinity,
+              }}
+            />
+          </div>
+          <span
+            className="text-[25vw] md:text-[20vw] leading-none font-black text-[#FFFFFF] tracking-tighter uppercase"
+            style={{ fontStretch: "condensed" }}
+          >
+            P
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const CustomCursor = () => {
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
   const [isHovering, setIsHovering] = useState(false);
@@ -178,15 +217,19 @@ const FluidSimulation = () => {
           
           void main() {
             vec3 baseColor = vec3(0.00, 0.00, 0.00); 
-            vec3 highlightColor = vec3(0.03, 0.05, 0.05); 
+            vec3 highlightColor = vec3(0.05, 0.05, 0.05); 
             
             float mixFactor = (vElevation + 1.0) * 0.5;
-            vec3 finalColor = mix(baseColor, highlightColor, smoothstep(0.45, 0.55, mixFactor));
+            vec3 finalColor = mix(baseColor, highlightColor, smoothstep(0.40, 0.60, mixFactor));
             
-            gl_FragColor = vec4(finalColor, 1.0);
+            // Output color with transparency:
+            // Base parts of the plane are completely transparent, ripples have some opacity
+            float alpha = smoothstep(0.45, 0.55, mixFactor) * 0.4;
+            gl_FragColor = vec4(finalColor, alpha);
           }
         `}
         wireframe={false}
+        transparent={true}
       />
     </mesh>
   );
@@ -225,11 +268,11 @@ const MobileLanding = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0, y: -100 }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className="relative w-full h-screen bg-black text-white overflow-hidden font-sans select-none"
+      className="relative w-full h-screen bg-gradient-to-b from-[#111111] to-[#0A0A0A] text-white overflow-hidden font-sans select-none"
     >
       {/* 3D Background: Ghostly Wireframe Device & Liquid Ripple */}
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -241,8 +284,8 @@ const MobileLanding = ({
       </div>
 
       {/* TOP SECTION: THE SPATIAL GLASS DOCK (NAVIGATION) */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center w-full max-w-3xl px-4">
-        <div className="flex w-full items-center justify-between px-8 py-4 rounded-[2rem] border border-white/10 backdrop-blur-3xl bg-[#050505]/40 shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-[#CCFF00]/50 group/dock">
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center w-full max-w-4xl px-4">
+        <div className="flex w-full items-center justify-between px-10 py-5 rounded-[2.5rem] border border-white/5 backdrop-blur-[40px] bg-[#111111]/20 shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-[#CCFF00]/50 group/dock">
           {[
             { id: null, label: "APP_LIBRARY", num: "01" },
             { id: 991, label: "SYSTEM_SPECS", num: "02" },
@@ -254,12 +297,12 @@ const MobileLanding = ({
               onClick={() => {
                 onUnlock(item.id);
               }}
-              className="group relative flex items-center gap-2 transition-transform duration-300 hover:scale-110 hover:-translate-y-1 outline-none cursor-pointer"
+              className="group relative flex items-center gap-3 transition-transform duration-300 hover:scale-[1.05] hover:-translate-y-[2px] outline-none cursor-pointer"
             >
-              <span className="font-mono text-[10px] text-white/30 tracking-widest group-hover:text-[#CCFF00] transition-colors duration-300">
+              <span className="font-mono text-[11px] text-[#888888] tracking-[0.2em] group-hover:text-[#CCFF00] transition-colors duration-300">
                 [ {item.num}:
               </span>
-              <span className="font-mono text-[10px] sm:text-[11px] font-bold tracking-widest text-white/70 uppercase group-hover:text-[#FFFFFF] group-hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-300 whitespace-nowrap">
+              <span className="font-mono text-[11px] sm:text-[12px] font-bold tracking-[0.2em] text-[#E0E0E0] uppercase group-hover:text-[#FFFFFF] group-hover:shadow-[0_0_15px_rgba(204,255,0,0.2)] transition-all duration-300 whitespace-nowrap">
                 {item.label} ]
               </span>
             </button>
@@ -267,68 +310,127 @@ const MobileLanding = ({
         </div>
       </div>
 
-      {/* CENTER SECTION: THE HERO STATEMENT */}
-      <div className="absolute inset-0 flex flex-col justify-center z-10 px-8 md:px-16 lg:px-24 mx-auto md:max-w-7xl pointer-events-none">
-        <div className="w-full flex-col items-center md:items-start justify-center flex">
-          <h1 className="text-[14vw] md:text-[8vw] lg:text-[7vw] leading-[0.85] tracking-tighter uppercase font-black text-white text-center md:text-left">
-            <span className="block font-extrabold text-[#ffffff]">
-              ENGINEERING
-            </span>
-            <span className="block text-white opacity-90">NATIVE</span>
-            <span className="block text-white opacity-80">FLUIDITY.</span>
+      {/* CENTER SECTION: THE HERO TYPOGRAPHY */}
+      <div className="absolute inset-0 flex flex-col justify-center z-10 w-full max-w-[95%] mx-auto pointer-events-none">
+        <div className="w-full flex-col flex items-center justify-center">
+          <span className="font-mono text-[10px] sm:text-xs md:text-sm tracking-[0.4em] uppercase text-white font-bold mb-4 opacity-90 text-center pointer-events-auto">
+            ZERO-LATENCY ARCHITECTURE. COMPLEX STATE VERIFICATION. 120HZ NATIVE
+            FLUIDITY.
+          </span>
+          <h1
+            className="text-[14vw] leading-[0.85] tracking-tighter uppercase font-black text-white text-center w-full pointer-events-auto"
+            style={{ fontStretch: "condensed" }}
+          >
+            JOSHUA PETER
           </h1>
-          <p className="mt-8 font-mono text-[10px] sm:text-xs md:text-sm text-[#888888] tracking-widest uppercase md:max-w-sm text-center md:text-left pointer-events-auto">
-            Senior Mobile Architecture.
-            <br />
-            iOS & Android. 120Hz or nothing.
-          </p>
         </div>
       </div>
 
-      {/* BOTTOM SECTION: THE ENTRY GESTURE */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-full flex flex-col items-center justify-center pointer-events-auto">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-[#888888] mb-3 pointer-events-none">
-          Drag up to enter APP_LIBRARY
-        </span>
-        <motion.div
-          drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0.2}
-          onDragEnd={(_, info) => {
-            if (info.offset.y < -50) {
-              onUnlock();
-            }
-          }}
-          className="w-32 h-1.5 bg-white rounded-full shadow-[0_4px_15px_rgba(204,255,0,0.5)] active:shadow-[0_4px_25px_rgba(204,255,0,0.9)] active:scale-95 transition-all duration-300 cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-[0_4px_25px_rgba(204,255,0,0.9)]"
-        ></motion.div>
+      {/* BOTTOM SECTION: THE COMPETENCY MENU */}
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 w-full flex items-center justify-center pointer-events-auto px-4">
+        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 md:gap-8 font-mono text-[10px] sm:text-xs tracking-widest uppercase items-center">
+          {[
+            "ALL",
+            "REACT NATIVE",
+            "iOS",
+            "ANDROID",
+            "TYPESCRIPT",
+            "REANIMATED",
+          ].map((skill, idx) => (
+            <div key={skill} className="flex items-center gap-6 md:gap-8">
+              <span
+                className={`cursor-pointer transition-colors duration-300 ${idx === 0 ? "text-white font-bold" : "text-[#888888] hover:text-[#FFFFFF]"}`}
+              >
+                {skill}
+              </span>
+              {idx < 5 && (
+                <span className="text-[#333333] select-none">//</span>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* BOTTOM LEFT: THE PHYSICS TOGGLE */}
-      <div className="absolute bottom-8 left-8 z-30 flex items-center gap-3 pointer-events-auto">
+      <div className="absolute bottom-8 left-8 z-30 flex items-center gap-4 pointer-events-auto hover:opacity-100 opacity-70 transition-opacity duration-300">
         <button
           onClick={() => setIsFluidOn(!isFluidOn)}
-          className="w-10 h-10 rounded-full border border-white/20 bg-[#050505]/60 backdrop-blur-xl flex items-center justify-center hover:bg-[#CCFF00]/10 hover:border-[#CCFF00]/50 transition-colors group outline-none"
+          className={`w-12 h-12 rounded-full border flex items-center justify-center backdrop-blur-2xl transition-all duration-300 outline-none group
+            ${
+              isFluidOn
+                ? "bg-[#111111]/40 border-[#CCFF00]/50 shadow-[0_0_15px_rgba(204,255,0,0.1)] hover:bg-[#CCFF00]/10 hover:border-[#CCFF00]"
+                : "bg-[#050505]/60 border-white/10 hover:border-white/30 hover:bg-white/5"
+            }`}
         >
           {isFluidOn ? (
             <svg
+              width="24"
+              height="24"
               viewBox="0 0 24 24"
-              className="w-4 h-4 text-[#CCFF00] group-hover:scale-110 transition-transform"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+              xmlns="http://www.w3.org/2000/svg"
+              className="text-[#CCFF00] group-hover:scale-110 transition-transform duration-300"
             >
               <path
+                d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M3 12h2l3 -6 4 12 3 -6h6"
+              />
+              <path
+                d="M2 12C2 12 5 19 12 19C19 19 22 12 22 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="3"
+                stroke="currentColor"
+                strokeWidth="1.5"
               />
             </svg>
           ) : (
-            <div className="w-1.5 h-1.5 rounded-full bg-[#888888] group-hover:bg-white transition-colors" />
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="text-[#888888] group-hover:text-white transition-colors duration-300"
+            >
+              <path
+                d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="4 4"
+              />
+              <path
+                d="M2 12C2 12 5 19 12 19C19 19 22 12 22 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="4 4"
+              />
+            </svg>
           )}
         </button>
-        <span className="font-mono text-[9px] tracking-widest text-[#888888] uppercase pointer-events-none">
-          [ FLUID_SIM // {isFluidOn ? "ON" : "OFF"} ]
+        <span className="font-mono text-[9px] sm:text-[10px] tracking-[0.2em] uppercase">
+          <span
+            className={`${isFluidOn ? "text-[#CCFF00]" : "text-[#888888]"}`}
+          >
+            [ FLUID_SIM
+          </span>
+          <span className="text-[#444444]"> // </span>
+          <span className={`${isFluidOn ? "text-white" : "text-[#888888]"}`}>
+            {isFluidOn ? "ON" : "OFF"} ]
+          </span>
         </span>
       </div>
     </motion.div>
@@ -3048,16 +3150,27 @@ const FluidIsland = ({
 };
 
 function MainApp() {
+  const [isLoading, setIsLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     null,
   );
 
+  useEffect(() => {
+    // Simulate initial loading sequence
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2500); // 2.5 seconds preloader display
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <>
       {unlocked && <FluidIsland onNavigate={setSelectedProjectId} />}
       <AnimatePresence mode="wait">
-        {!unlocked ? (
+        {isLoading ? (
+          <Preloader key="preloader" />
+        ) : !unlocked ? (
           <MobileLanding
             key="landing"
             onUnlock={(id) => {
