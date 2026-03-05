@@ -238,7 +238,7 @@ const FluidSimulation = () => {
 const PhoneWireframe = () => {
   const groupRef = useRef<THREE.Group>(null);
 
-  useFrame((state, delta) => {
+  useFrame((delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * 0.5;
     }
