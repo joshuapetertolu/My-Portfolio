@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --animate-spin-glow: spin-glow 4s linear infinite;
+
+  @keyframes spin-glow {
+    0% {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+}
+
 /* Custom portfolio styles */
 
 * {

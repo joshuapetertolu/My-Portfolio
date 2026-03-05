@@ -164,223 +164,223 @@ const CustomCursor = () => {
   );
 };
 
-const JsiBridgePhysics = () => {
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
+// const JsiBridgePhysics = () => {
+//   const materialRef = useRef<THREE.ShaderMaterial>(null);
 
-  useFrame((state) => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-      materialRef.current.uniforms.uMouse.value.lerp(
-        new THREE.Vector2(state.pointer.x, state.pointer.y),
-        0.1,
-      );
-    }
-  });
+//   useFrame((state) => {
+//     if (materialRef.current) {
+//       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+//       materialRef.current.uniforms.uMouse.value.lerp(
+//         new THREE.Vector2(state.pointer.x, state.pointer.y),
+//         0.1,
+//       );
+//     }
+//   });
 
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector2(0, 0) },
-    }),
-    [],
-  );
+//   const uniforms = useMemo(
+//     () => ({
+//       uTime: { value: 0 },
+//       uMouse: { value: new THREE.Vector2(0, 0) },
+//     }),
+//     [],
+//   );
 
-  return (
-    <mesh position={[0, 0, -5]}>
-      <planeGeometry args={[100, 100, 128, 128]} />
-      <shaderMaterial
-        ref={materialRef}
-        uniforms={uniforms}
-        vertexShader={`
-          uniform float uTime;
-          uniform vec2 uMouse;
-          varying vec2 vUv;
-          varying float vElevation;
-          
-          void main() {
-            vUv = uv;
-            vec3 pos = position;
-            
-            // Manhattan distance for geometric/circuit-like propagation
-            vec2 mouseUv = vec2(uMouse.x * 0.5 + 0.5, uMouse.y * 0.5 + 0.5);
-            vec2 dUv = abs(uv - mouseUv);
-            float dist = dUv.x + dUv.y;
-            
-            // Stepped waves
-            float wave = sin(dist * 80.0 - uTime * 10.0);
-            float steppedWave = step(0.5, fract(wave * 0.5 + 0.5));
-            
-            float pulse = steppedWave * exp(-dist * 8.0);
-            
-            pos.z += pulse * 0.6;
-            vElevation = pulse;
-            
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-          }
-        `}
-        fragmentShader={`
-          varying vec2 vUv;
-          varying float vElevation;
-          
-          void main() {
-            vec3 baseColor = vec3(0.00, 0.00, 0.00); 
-            // Light up the circuit pulses
-            vec3 highlightColor = vec3(0.1, 0.15, 0.2); 
-            
-            float mixFactor = vElevation;
-            vec3 finalColor = mix(baseColor, highlightColor, mixFactor);
-            
-            // Only show opacity where there is a pulse
-            float alpha = mixFactor * 0.5;
-            gl_FragColor = vec4(finalColor, alpha);
-          }
-        `}
-        wireframe={false}
-        transparent={true}
-      />
-    </mesh>
-  );
-};
+//   return (
+//     <mesh position={[0, 0, -5]}>
+//       <planeGeometry args={[100, 100, 128, 128]} />
+//       <shaderMaterial
+//         ref={materialRef}
+//         uniforms={uniforms}
+//         vertexShader={`
+//           uniform float uTime;
+//           uniform vec2 uMouse;
+//           varying vec2 vUv;
+//           varying float vElevation;
 
-const DataTopology = () => {
-  const pointsRef = useRef<THREE.Points>(null);
-  const linesRef = useRef<THREE.LineSegments>(null);
+//           void main() {
+//             vUv = uv;
+//             vec3 pos = position;
 
-  const particleCount = 400;
+//             // Manhattan distance for geometric/circuit-like propagation
+//             vec2 mouseUv = vec2(uMouse.x * 0.5 + 0.5, uMouse.y * 0.5 + 0.5);
+//             vec2 dUv = abs(uv - mouseUv);
+//             float dist = dUv.x + dUv.y;
 
-  const { positions, colors } = useMemo(() => {
-    const pos = new Float32Array(particleCount * 3);
-    const col = new Float32Array(particleCount * 3);
+//             // Stepped waves
+//             float wave = sin(dist * 80.0 - uTime * 10.0);
+//             float steppedWave = step(0.5, fract(wave * 0.5 + 0.5));
 
-    for (let i = 0; i < particleCount; i++) {
-      // Spread nodes in a 3D volume
-      pos[i * 3] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 10 - 2; // Bias slightly away from camera
+//             float pulse = steppedWave * exp(-dist * 8.0);
 
-      // React Blue base color #61DAFB (97, 218, 251)
-      col[i * 3] = 97 / 255;
-      col[i * 3 + 1] = 218 / 255;
-      col[i * 3 + 2] = 251 / 255;
-    }
-    return { positions: pos, colors: col };
-  }, []);
+//             pos.z += pulse * 0.6;
+//             vElevation = pulse;
 
-  // Compute connections (lines) between nodes
-  const { linePositions, lineColors } = useMemo(() => {
-    const lPos: number[] = [];
-    const lCol: number[] = [];
-    const maxDistance = 3.5;
+//             gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+//           }
+//         `}
+//         fragmentShader={`
+//           varying vec2 vUv;
+//           varying float vElevation;
 
-    for (let i = 0; i < particleCount; i++) {
-      for (let j = i + 1; j < particleCount; j++) {
-        const dx = positions[i * 3] - positions[j * 3];
-        const dy = positions[i * 3 + 1] - positions[j * 3 + 1];
-        const dz = positions[i * 3 + 2] - positions[j * 3 + 2];
-        const distSq = dx * dx + dy * dy + dz * dz;
+//           void main() {
+//             vec3 baseColor = vec3(0.00, 0.00, 0.00);
+//             // Light up the circuit pulses
+//             vec3 highlightColor = vec3(0.1, 0.15, 0.2);
 
-        if (distSq < maxDistance * maxDistance) {
-          lPos.push(
-            positions[i * 3],
-            positions[i * 3 + 1],
-            positions[i * 3 + 2],
-            positions[j * 3],
-            positions[j * 3 + 1],
-            positions[j * 3 + 2],
-          );
+//             float mixFactor = vElevation;
+//             vec3 finalColor = mix(baseColor, highlightColor, mixFactor);
 
-          const alpha = 1.0 - Math.sqrt(distSq) / maxDistance;
-          // Subtly colored lines, heavily faded
-          lCol.push(
-            (97 / 255) * alpha,
-            (218 / 255) * alpha,
-            (251 / 255) * alpha,
-            (97 / 255) * alpha,
-            (218 / 255) * alpha,
-            (251 / 255) * alpha,
-          );
-        }
-      }
-    }
-    return {
-      linePositions: new Float32Array(lPos),
-      lineColors: new Float32Array(lCol),
-    };
-  }, [positions]);
+//             // Only show opacity where there is a pulse
+//             float alpha = mixFactor * 0.5;
+//             gl_FragColor = vec4(finalColor, alpha);
+//           }
+//         `}
+//         wireframe={false}
+//         transparent={true}
+//       />
+//     </mesh>
+//   );
+// };
 
-  useFrame((state) => {
-    if (pointsRef.current && linesRef.current) {
-      const t = state.clock.elapsedTime * 0.1;
-      pointsRef.current.rotation.y = t * 0.5;
-      pointsRef.current.rotation.x = t * 0.2;
-      linesRef.current.rotation.y = t * 0.5;
-      linesRef.current.rotation.x = t * 0.2;
+// const DataTopology = () => {
+//   const pointsRef = useRef<THREE.Points>(null);
+//   const linesRef = useRef<THREE.LineSegments>(null);
 
-      // Pulsate point sizes
-      const material = pointsRef.current.material as THREE.PointsMaterial;
-      material.size = 0.05 + Math.sin(state.clock.elapsedTime * 2) * 0.02;
-    }
-  });
+//   const particleCount = 400;
 
-  return (
-    <group>
-      <points ref={pointsRef}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-          <bufferAttribute attach="attributes-color" args={[colors, 3]} />
-        </bufferGeometry>
-        <pointsMaterial
-          size={0.06}
-          vertexColors
-          transparent
-          opacity={0.6}
-          sizeAttenuation
-          blending={THREE.AdditiveBlending}
-        />
-      </points>
-      <lineSegments ref={linesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            args={[linePositions, 3]}
-          />
-          <bufferAttribute attach="attributes-color" args={[lineColors, 3]} />
-        </bufferGeometry>
-        <lineBasicMaterial
-          vertexColors
-          transparent
-          opacity={0.15}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </lineSegments>
-    </group>
-  );
-};
+//   const { positions, colors } = useMemo(() => {
+//     const pos = new Float32Array(particleCount * 3);
+//     const col = new Float32Array(particleCount * 3);
 
-const PhoneWireframe = () => {
-  const groupRef = useRef<THREE.Group>(null);
+//     for (let i = 0; i < particleCount; i++) {
+//       // Spread nodes in a 3D volume
+//       pos[i * 3] = (Math.random() - 0.5) * 20;
+//       pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
+//       pos[i * 3 + 2] = (Math.random() - 0.5) * 10 - 2; // Bias slightly away from camera
 
-  useFrame((state, delta) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.3;
-    }
-  });
+//       // React Blue base color #61DAFB (97, 218, 251)
+//       col[i * 3] = 97 / 255;
+//       col[i * 3 + 1] = 218 / 255;
+//       col[i * 3 + 2] = 251 / 255;
+//     }
+//     return { positions: pos, colors: col };
+//   }, []);
 
-  return (
-    <group ref={groupRef} rotation={[0.2, 0.5, 0]}>
-      <mesh>
-        <boxGeometry args={[2.5, 5, 0.2]} />
-        <meshBasicMaterial
-          color="#888888"
-          wireframe
-          transparent
-          opacity={0.08}
-        />
-      </mesh>
-    </group>
-  );
-};
+//   // Compute connections (lines) between nodes
+//   const { linePositions, lineColors } = useMemo(() => {
+//     const lPos: number[] = [];
+//     const lCol: number[] = [];
+//     const maxDistance = 3.5;
+
+//     for (let i = 0; i < particleCount; i++) {
+//       for (let j = i + 1; j < particleCount; j++) {
+//         const dx = positions[i * 3] - positions[j * 3];
+//         const dy = positions[i * 3 + 1] - positions[j * 3 + 1];
+//         const dz = positions[i * 3 + 2] - positions[j * 3 + 2];
+//         const distSq = dx * dx + dy * dy + dz * dz;
+
+//         if (distSq < maxDistance * maxDistance) {
+//           lPos.push(
+//             positions[i * 3],
+//             positions[i * 3 + 1],
+//             positions[i * 3 + 2],
+//             positions[j * 3],
+//             positions[j * 3 + 1],
+//             positions[j * 3 + 2],
+//           );
+
+//           const alpha = 1.0 - Math.sqrt(distSq) / maxDistance;
+//           // Subtly colored lines, heavily faded
+//           lCol.push(
+//             (97 / 255) * alpha,
+//             (218 / 255) * alpha,
+//             (251 / 255) * alpha,
+//             (97 / 255) * alpha,
+//             (218 / 255) * alpha,
+//             (251 / 255) * alpha,
+//           );
+//         }
+//       }
+//     }
+//     return {
+//       linePositions: new Float32Array(lPos),
+//       lineColors: new Float32Array(lCol),
+//     };
+//   }, [positions]);
+
+//   useFrame((state) => {
+//     if (pointsRef.current && linesRef.current) {
+//       const t = state.clock.elapsedTime * 0.1;
+//       pointsRef.current.rotation.y = t * 0.5;
+//       pointsRef.current.rotation.x = t * 0.2;
+//       linesRef.current.rotation.y = t * 0.5;
+//       linesRef.current.rotation.x = t * 0.2;
+
+//       // Pulsate point sizes
+//       const material = pointsRef.current.material as THREE.PointsMaterial;
+//       material.size = 0.05 + Math.sin(state.clock.elapsedTime * 2) * 0.02;
+//     }
+//   });
+
+//   return (
+//     <group>
+//       <points ref={pointsRef}>
+//         <bufferGeometry>
+//           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+//           <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+//         </bufferGeometry>
+//         <pointsMaterial
+//           size={0.06}
+//           vertexColors
+//           transparent
+//           opacity={0.6}
+//           sizeAttenuation
+//           blending={THREE.AdditiveBlending}
+//         />
+//       </points>
+//       <lineSegments ref={linesRef}>
+//         <bufferGeometry>
+//           <bufferAttribute
+//             attach="attributes-position"
+//             args={[linePositions, 3]}
+//           />
+//           <bufferAttribute attach="attributes-color" args={[lineColors, 3]} />
+//         </bufferGeometry>
+//         <lineBasicMaterial
+//           vertexColors
+//           transparent
+//           opacity={0.15}
+//           blending={THREE.AdditiveBlending}
+//           depthWrite={false}
+//         />
+//       </lineSegments>
+//     </group>
+//   );
+// };
+
+// const PhoneWireframe = () => {
+//   const groupRef = useRef<THREE.Group>(null);
+
+//   useFrame((state, delta) => {
+//     if (groupRef.current) {
+//       groupRef.current.rotation.y += delta * 0.3;
+//     }
+//   });
+
+//   return (
+//     <group ref={groupRef} rotation={[0.2, 0.5, 0]}>
+//       <mesh>
+//         <boxGeometry args={[2.5, 5, 0.2]} />
+//         <meshBasicMaterial
+//           color="#888888"
+//           wireframe
+//           transparent
+//           opacity={0.08}
+//         />
+//       </mesh>
+//     </group>
+//   );
+// };
 
 const JsiInspectorPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -460,78 +460,233 @@ const JsiInspectorPanel = () => {
   );
 };
 
+const HalftoneWaveMatrix = ({ theme }: { theme: "cyan" | "gold" }) => {
+  const pointsRef = useRef<THREE.Points>(null);
+
+  const gridSize = 120;
+  const spacing = 0.25;
+
+  const { positions, uvs } = useMemo(() => {
+    const pos = new Float32Array(gridSize * gridSize * 3);
+    const uvArray = new Float32Array(gridSize * gridSize * 2);
+
+    let i = 0;
+    let j = 0;
+    const offset = (gridSize * spacing) / 2;
+
+    for (let x = 0; x < gridSize; x++) {
+      for (let y = 0; y < gridSize; y++) {
+        pos[i++] = x * spacing - offset;
+        pos[i++] = y * spacing - offset;
+        pos[i++] = 0;
+
+        uvArray[j++] = x / gridSize;
+        uvArray[j++] = y / gridSize;
+      }
+    }
+    return { positions: pos, uvs: uvArray };
+  }, [gridSize, spacing]);
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uColorBase: { value: new THREE.Color() },
+      uColorCrest: { value: new THREE.Color() },
+    }),
+    [],
+  );
+
+  // Update uniform colours when theme changes
+  useEffect(() => {
+    if (theme === "cyan") {
+      uniforms.uColorBase.value.set("#0A1114");
+      uniforms.uColorCrest.value.set("#6EB0B8");
+    } else {
+      uniforms.uColorBase.value.set("#000000");
+      // Mix of Glowing Golden Brown and Amber
+      uniforms.uColorCrest.value.set("#C19A2B");
+    }
+  }, [theme, uniforms]);
+
+  useFrame((state) => {
+    if (pointsRef.current) {
+      const material = pointsRef.current.material as THREE.ShaderMaterial;
+      material.uniforms.uTime.value = state.clock.elapsedTime;
+      // Slant the matrix to look like a surface trailing off into the distance
+      pointsRef.current.rotation.x = -Math.PI / 2.5;
+      pointsRef.current.rotation.z = Math.PI / 8;
+    }
+  });
+
+  return (
+    <points ref={pointsRef} position={[0, -2, -5]}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-uv" args={[uvs, 2]} />
+      </bufferGeometry>
+      <shaderMaterial
+        uniforms={uniforms}
+        vertexShader={`
+          uniform float uTime;
+          varying vec2 vUv;
+          varying float vElevation;
+
+          void main() {
+            vUv = uv;
+            vec3 pos = position;
+            
+            // Multiple sine waves for smooth undulating liquid motion
+            float wave1 = sin(pos.x * 0.4 + uTime * 0.8);
+            float wave2 = sin(pos.y * 0.5 + uTime * 0.6);
+            float wave3 = sin((pos.x + pos.y) * 0.3 + uTime * 0.5);
+            
+            float elevation = (wave1 + wave2 + wave3) / 3.0;
+            
+            // Displacement
+            pos.z += elevation * 1.5;
+            vElevation = elevation;
+            
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            
+            // Size dots based on elevation and distance
+            float size = (elevation + 1.2) * 3.0; 
+            gl_PointSize = size * (20.0 / -mvPosition.z);
+            
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `}
+        fragmentShader={`
+          uniform vec3 uColorBase;
+          uniform vec3 uColorCrest;
+          varying float vElevation;
+
+          void main() {
+            // Circular dots
+            vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+            if (dot(cxy, cxy) > 1.0) discard;
+            
+            float mixFactor = (vElevation + 1.0) * 0.5;
+            mixFactor = smoothstep(0.2, 0.8, mixFactor);
+            
+            vec3 finalColor = mix(uColorBase, uColorCrest, mixFactor * 1.5);
+            
+            gl_FragColor = vec4(finalColor, 0.9);
+          }
+        `}
+        transparent={true}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+};
+
 const MobileLanding = ({
   onUnlock,
 }: {
   onUnlock: (id?: number | null) => void;
 }) => {
-  const [isJsiPhysicsOn, setIsJsiPhysicsOn] = useState(true);
+  const [theme, setTheme] = useState<"cyan" | "gold">("cyan");
+
+  // Theme-dependent values
+  const isCyan = theme === "cyan";
+  const bgColor = isCyan ? "bg-[#0A1114]" : "bg-[#000000]";
+  const accentColor = isCyan ? "text-[#CCFF00]" : "text-[#D4AF37]";
+  const accentHex = isCyan ? "#CCFF00" : "#D4AF37";
+  // const accentFill = isCyan ? "fill-[#CCFF00]" : "fill-[#D4AF37]";
+  // const secondaryAccentColor = isCyan ? "text-[#00FFCC]" : "text-[#B8860B]";
+  // const secondaryAccentHex = isCyan ? "#00FFCC" : "#B8860B";
+
+  const glowGradient = isCyan
+    ? "bg-[conic-gradient(from_0deg_at_50%_50%,transparent_70%,#CCFF00_85%,#00FFCC_100%)]"
+    : "bg-[conic-gradient(from_0deg_at_50%_50%,transparent_70%,#D4AF37_85%,#B8860B_100%)]";
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: 1, backgroundColor: isCyan ? "#0A1114" : "#000000" }}
       exit={{ opacity: 0, y: -100 }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className="relative w-full h-screen bg-[#000000] text-white overflow-hidden font-sans select-none"
+      className={`relative w-full h-screen ${bgColor} text-white overflow-hidden font-sans select-none transition-colors duration-1000`}
     >
       {/* AMBIENT BACKGROUND GLOW */}
       <motion.div
-        className="absolute inset-0 z-0 pointer-events-none"
+        className="absolute inset-0 z-0 pointer-events-none transition-colors duration-1000"
         animate={{
-          background: [
-            "radial-gradient(circle at 20% 30%, rgba(0, 255, 204, 0.08) 0%, rgba(0,0,0,0) 60%)",
-            "radial-gradient(circle at 80% 70%, rgba(204, 255, 0, 0.05) 0%, rgba(0,0,0,0) 60%)",
-            "radial-gradient(circle at 20% 30%, rgba(0, 255, 204, 0.08) 0%, rgba(0,0,0,0) 60%)",
-          ],
+          background: isCyan
+            ? [
+                "radial-gradient(circle at 20% 30%, rgba(110, 176, 184, 0.1) 0%, rgba(0,0,0,0) 60%)",
+                "radial-gradient(circle at 80% 70%, rgba(110, 176, 184, 0.05) 0%, rgba(0,0,0,0) 60%)",
+                "radial-gradient(circle at 20% 30%, rgba(110, 176, 184, 0.1) 0%, rgba(0,0,0,0) 60%)",
+              ]
+            : [
+                "radial-gradient(circle at 20% 30%, rgba(212, 175, 55, 0.1) 0%, rgba(0,0,0,0) 60%)",
+                "radial-gradient(circle at 80% 70%, rgba(212, 175, 55, 0.05) 0%, rgba(0,0,0,0) 60%)",
+                "radial-gradient(circle at 20% 30%, rgba(212, 175, 55, 0.1) 0%, rgba(0,0,0,0) 60%)",
+              ],
         }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
       />
-      {/* 3D Background: Data Topology, Wireframe & JSI Bridge Physics */}
+      {/* 3D Background: Halftone Wave Matrix */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <Canvas camera={{ position: [0, 0, 8] }}>
           <ambientLight intensity={0.5} />
-          {isJsiPhysicsOn && <JsiBridgePhysics />}
-          <DataTopology />
-          <PhoneWireframe />
+          <HalftoneWaveMatrix theme={theme} />
         </Canvas>
       </div>
       {/* HEAVY FROSTED GLASS OVERLAY */}
-      <div className="absolute inset-0 pointer-events-none z-10 backdrop-blur-[60px] bg-black/40" />
+      <div
+        className={`absolute inset-0 pointer-events-none z-10 backdrop-blur-[40px] transition-colors duration-1000 ${isCyan ? "bg-[#0A1114]/20" : "bg-[#000000]/20"}`}
+      />
+
       {/* TOP SECTION: THE PREMIUM GLASS DOCK (NAVIGATION) */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center w-full max-w-4xl px-4">
-        <div className="flex w-full items-center justify-between px-10 py-5 rounded-[2.5rem] border border-white/30 backdrop-blur-3xl bg-white/20 shadow-[0_30px_60px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.4)] transition-all duration-300 hover:border-white/50 group/dock">
-          {[
-            { id: null, label: "PROJECTS", num: "01" },
-            { id: 991, label: "EXPERTISE", num: "02" },
-            { id: 6, label: "BACKGROUND", num: "03" },
-            { id: 992, label: "CONTACT", num: "04" },
-          ].map((item, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                onUnlock(item.id);
-              }}
-              className="group relative flex items-center gap-3 transition-transform duration-300 hover:scale-[1.05] hover:-translate-y-[2px] outline-none cursor-pointer"
-            >
-              <span className="font-mono text-[11px] text-[#888888] tracking-[0.2em] group-hover:text-[#CCFF00] transition-colors duration-300">
-                [ {item.num}:
-              </span>
-              <span className="font-mono text-[11px] sm:text-[12px] font-bold tracking-[0.2em] text-[#E0E0E0] uppercase group-hover:text-[#FFFFFF] group-hover:shadow-[0_0_15px_rgba(204,255,0,0.2)] transition-all duration-300 whitespace-nowrap">
-                {item.label} ]
-              </span>
-            </button>
-          ))}
+        {/* Glow orbit container */}
+        <div className="relative w-full rounded-[2.5rem] p-[1px] overflow-hidden group/dock">
+          {/* Rotating Laser Line */}
+          <div
+            className={`absolute top-1/2 left-1/2 w-[200%] h-[500%] ${glowGradient} animate-spin-glow z-0`}
+          />
+
+          {/* Inner Glass Dock */}
+          <div className="relative z-10 flex w-full items-center justify-between px-10 py-5 rounded-[2.5rem] border border-white/20 backdrop-blur-md bg-white/15 transition-all duration-300">
+            {[
+              { id: null, label: "PROJECTS", num: "01" },
+              { id: 991, label: "EXPERTISE", num: "02" },
+              { id: 6, label: "BACKGROUND", num: "03" },
+              { id: 992, label: "CONTACT", num: "04" },
+            ].map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  onUnlock(item.id);
+                }}
+                className="group relative flex items-center gap-3 transition-transform duration-300 hover:scale-[1.05] hover:-translate-y-[2px] outline-none cursor-pointer"
+              >
+                <span
+                  className={`font-mono text-[11px] text-[#888888] tracking-[0.2em] group-hover:${accentColor} transition-colors duration-300`}
+                >
+                  [ {item.num}:
+                </span>
+                <span
+                  className={`font-mono text-[11px] sm:text-[12px] font-bold tracking-[0.2em] text-[#E0E0E0] uppercase group-hover:text-[#FFFFFF] transition-all duration-300 whitespace-nowrap`}
+                  style={{ textShadow: `0 0 15px ${accentHex}66` }}
+                >
+                  {item.label} ]
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       {/* CENTER SECTION: THE HERO TYPOGRAPHY */}
-      <div className="absolute inset-0 flex flex-col justify-center items-center z-10 w-full max-w-[85vw] lg:max-w-[65vw] mx-auto pointer-events-none">
+      <div className="absolute inset-0 flex flex-col justify-center items-center z-10 w-full max-w-[95vw] mx-auto pointer-events-none">
         <div className="w-full flex flex-col items-center justify-center gap-10 sm:gap-14">
           <h2 className="font-mono text-[10px] sm:text-xs md:text-sm tracking-[0.4em] md:tracking-[0.5em] uppercase text-white font-bold opacity-100 text-center pointer-events-auto m-0 p-0 block">
             MOBILE ARCHITECTURE. 120HZ FLUIDITY. ZERO-LATENCY SYSTEMS.
           </h2>
           <h1
-            className="w-full text-center leading-[0.9] tracking-tighter uppercase text-white pointer-events-auto whitespace-nowrap m-0 p-0 text-[14vw] sm:text-[12vw] lg:text-[10vw]"
+            className="w-full text-center leading-[0.9] tracking-[0.05em] uppercase text-white pointer-events-auto whitespace-nowrap m-0 p-0 text-[14vw] sm:text-[12vw] lg:text-[10vw]"
             style={{
               fontFamily:
                 '"Impact", "Helvetica Now Display", "Arial Narrow", sans-serif',
@@ -543,92 +698,34 @@ const MobileLanding = ({
           </h1>
         </div>
       </div>
-      {/* JSI INSPECTOR PANEL */}
+
+      {/* JSI INSPECTOR PANEL (CORE COMPETENCIES) */}
       <JsiInspectorPanel />
-      {/* BOTTOM LEFT: THE PHYSICS TOGGLE */}
+
+      {/* BOTTOM LEFT: THE THEME TOGGLE */}
       <div className="absolute bottom-8 left-8 z-30 flex items-center gap-4 pointer-events-auto hover:opacity-100 opacity-70 transition-opacity duration-300">
         <button
-          onClick={() => setIsJsiPhysicsOn(!isJsiPhysicsOn)}
-          className={`w-12 h-12 rounded-full border flex items-center justify-center backdrop-blur-2xl transition-all duration-300 outline-none group
-            ${
-              isJsiPhysicsOn
-                ? "bg-[#111111]/40 border-[#CCFF00]/50 shadow-[0_0_15px_rgba(204,255,0,0.1)] hover:bg-[#CCFF00]/10 hover:border-[#CCFF00]"
-                : "bg-[#050505]/60 border-white/10 hover:border-white/30 hover:bg-white/5"
-            }`}
+          onClick={() => setTheme(isCyan ? "gold" : "cyan")}
+          className={`w-10 h-10 rounded-full border border-white/20 bg-white/5 backdrop-blur-md flex items-center justify-center outline-none group hover:bg-white/10 transition-all duration-300`}
+          style={{ borderColor: `rgba(255,255,255,0.2)` }}
         >
-          {isJsiPhysicsOn ? (
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-[#CCFF00] group-hover:scale-110 transition-transform duration-300"
-            >
-              <path
-                d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M2 12C2 12 5 19 12 19C19 19 22 12 22 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle
-                cx="12"
-                cy="12"
-                r="3"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-            </svg>
-          ) : (
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-[#888888] group-hover:text-white transition-colors duration-300"
-            >
-              <path
-                d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray="4 4"
-              />
-              <path
-                d="M2 12C2 12 5 19 12 19C19 19 22 12 22 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray="4 4"
-              />
-            </svg>
-          )}
+          <div className="w-4 h-4 rounded-full overflow-hidden flex border border-white/30 group-hover:rotate-180 transition-transform duration-700">
+            <div
+              className={`w-1/2 h-full ${isCyan ? "bg-[#CCFF00]" : "bg-[#D4AF37]"}`}
+            />
+            <div
+              className={`w-1/2 h-full ${isCyan ? "bg-[#00FFCC]" : "bg-[#B8860B]"}`}
+            />
+          </div>
         </button>
-        <span className="font-mono text-[9px] sm:text-[10px] tracking-[0.2em] uppercase">
-          <span
-            className={`${isJsiPhysicsOn ? "text-[#CCFF00]" : "text-[#888888]"}`}
-          >
-            [ JSI_PHYSICS
-          </span>
-          <span className="text-[#444444]"> // </span>
-          <span
-            className={`${isJsiPhysicsOn ? "text-white" : "text-[#888888]"}`}
-          >
-            {isJsiPhysicsOn ? "ON" : "OFF"} ]
-          </span>
+        <span
+          className={`font-mono text-[9px] sm:text-[10px] tracking-[0.2em] uppercase transition-colors duration-300`}
+          style={{ color: accentHex }}
+        >
+          [ COLOR_MATRIX // {isCyan ? "CYAN" : "GOLD"} ]
         </span>
       </div>
+
       {/* BOTTOM RIGHT: FOOTER STATS */}
       <div className="absolute bottom-8 right-8 z-30 pointer-events-none">
         <span className="font-mono text-[9px] sm:text-[10px] tracking-[0.1em] text-[#888888] uppercase">
