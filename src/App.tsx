@@ -16,7 +16,7 @@ import {
 const Preloader = () => {
   return (
     <motion.div
-      className="fixed inset-0 z-[10000] bg-[#000000] flex items-center justify-center font-sans select-none"
+      className="fixed inset-0 z-10000 bg-[#000000] flex items-center justify-center font-sans select-none"
       exit={{ opacity: 0, y: "-100%" }}
       transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
     >
@@ -31,7 +31,7 @@ const Preloader = () => {
           {/* Subtle Spinner directly above the P */}
           <div className="absolute -top-4 md:-top-8 w-6 h-6 md:w-8 md:h-8">
             <motion.div
-              className="w-full h-full rounded-full border-[1px] border-t-transparent border-[#888888]"
+              className="w-full h-full rounded-full border border-t-transparent border-[#888888]"
               animate={{ rotate: 360 }}
               transition={{
                 duration: 1,
@@ -104,7 +104,7 @@ const CustomCursor = () => {
   return (
     <>
       <motion.div
-        className="fixed top-0 left-0 pointer-events-none z-[9999] flex items-center justify-center mix-blend-difference"
+        className="fixed top-0 left-0 pointer-events-none z-9999 flex items-center justify-center mix-blend-difference"
         animate={{
           x: mousePos.x - 8,
           y: mousePos.y - 8,
@@ -238,7 +238,7 @@ const FluidSimulation = () => {
 const PhoneWireframe = () => {
   const groupRef = useRef<THREE.Group>(null);
 
-  useFrame((delta) => {
+  useFrame((state, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * 0.5;
     }
