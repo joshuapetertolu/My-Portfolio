@@ -272,7 +272,7 @@ const MobileLanding = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, y: -100 }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className="relative w-full h-screen bg-gradient-to-b from-[#111111] to-[#0A0A0A] text-white overflow-hidden font-sans select-none"
+      className="relative w-full h-screen bg-[#000000] text-white overflow-hidden font-sans select-none"
     >
       {/* 3D Background: Ghostly Wireframe Device & Liquid Ripple */}
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -313,41 +313,35 @@ const MobileLanding = ({
       {/* CENTER SECTION: THE HERO TYPOGRAPHY */}
       <div className="absolute inset-0 flex flex-col justify-center z-10 w-full max-w-[95%] mx-auto pointer-events-none">
         <div className="w-full flex-col flex items-center justify-center">
-          <span className="font-mono text-[10px] sm:text-xs md:text-sm tracking-[0.4em] uppercase text-white font-bold mb-4 opacity-90 text-center pointer-events-auto">
-            ZERO-LATENCY ARCHITECTURE. COMPLEX STATE VERIFICATION. 120HZ NATIVE
-            FLUIDITY.
+          <span className="font-mono text-[10px] sm:text-xs tracking-[0.2em] md:tracking-[0.4em] uppercase text-white font-bold mb-6 opacity-90 text-center pointer-events-auto">
+            MOBILE ARCHITECTURE. 120HZ FLUIDITY. ZERO-LATENCY SYSTEMS.
           </span>
           <h1
-            className="text-[14vw] leading-[0.85] tracking-tighter uppercase font-black text-white text-center w-full pointer-events-auto"
-            style={{ fontStretch: "condensed" }}
+            className="text-[10vw] mt-10 sm:text-[9vw] md:text-[8vw] leading-[0.8] tracking-tight uppercase text-white text-center pointer-events-auto whitespace-nowrap"
+            style={{
+              fontFamily: '"Impact", "Bebas Neue", "Arial Narrow", sans-serif',
+              transform: "scaleY(1.6)",
+              WebkitFontSmoothing: "antialiased",
+            }}
           >
             JOSHUA PETER
           </h1>
         </div>
       </div>
 
-      {/* BOTTOM SECTION: THE COMPETENCY MENU */}
+      {/* BOTTOM SECTION: THE COMPETENCY TAGS (FILTER MENU) */}
       <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 w-full flex items-center justify-center pointer-events-auto px-4">
-        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 md:gap-8 font-mono text-[10px] sm:text-xs tracking-widest uppercase items-center">
-          {[
-            "ALL",
-            "REACT NATIVE",
-            "iOS",
-            "ANDROID",
-            "TYPESCRIPT",
-            "REANIMATED",
-          ].map((skill, idx) => (
-            <div key={skill} className="flex items-center gap-6 md:gap-8">
-              <span
-                className={`cursor-pointer transition-colors duration-300 ${idx === 0 ? "text-white font-bold" : "text-[#888888] hover:text-[#FFFFFF]"}`}
+        <div className="flex flex-wrap justify-center gap-2 lg:gap-3 font-sans text-[9px] sm:text-[10px] font-bold tracking-widest uppercase items-center text-center">
+          {["REACT NATIVE", "iOS", "ANDROID", "TYPESCRIPT", "REANIMATED"].map(
+            (skill, idx) => (
+              <button
+                key={skill}
+                className={`px-4 xl:px-6 py-2 cursor-pointer transition-colors duration-300 outline-none ${idx === 0 ? "bg-[#FFFFFF] text-[#000000]" : "bg-[#111111] text-[#888888] hover:text-[#FFFFFF] hover:bg-[#222222]"}`}
               >
                 {skill}
-              </span>
-              {idx < 5 && (
-                <span className="text-[#333333] select-none">//</span>
-              )}
-            </div>
-          ))}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
@@ -431,6 +425,13 @@ const MobileLanding = ({
           <span className={`${isFluidOn ? "text-white" : "text-[#888888]"}`}>
             {isFluidOn ? "ON" : "OFF"} ]
           </span>
+        </span>
+      </div>
+
+      {/* BOTTOM RIGHT: FOOTER STATS */}
+      <div className="absolute bottom-8 right-8 z-30 pointer-events-none">
+        <span className="font-mono text-[9px] sm:text-[10px] tracking-[0.1em] text-[#888888] uppercase">
+          NATIVE FLUIDITY // VERIFIED SYSTEM: 120Hz.
         </span>
       </div>
     </motion.div>
