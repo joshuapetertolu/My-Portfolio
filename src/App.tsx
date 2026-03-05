@@ -164,16 +164,15 @@ const CustomCursor = () => {
   );
 };
 
-const FluidSimulation = () => {
+const JsiBridgePhysics = () => {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
 
   useFrame((state) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-      // Smoothly interpolate mouse position for fluid effect
       materialRef.current.uniforms.uMouse.value.lerp(
         new THREE.Vector2(state.pointer.x, state.pointer.y),
-        0.05,
+        0.1,
       );
     }
   });
@@ -202,11 +201,19 @@ const FluidSimulation = () => {
             vUv = uv;
             vec3 pos = position;
             
-            float dist = distance(uv, vec2(uMouse.x * 0.5 + 0.5, uMouse.y * 0.5 + 0.5));
-            float ripple = sin(dist * 50.0 - uTime * 5.0) * exp(-dist * 10.0);
+            // Manhattan distance for geometric/circuit-like propagation
+            vec2 mouseUv = vec2(uMouse.x * 0.5 + 0.5, uMouse.y * 0.5 + 0.5);
+            vec2 dUv = abs(uv - mouseUv);
+            float dist = dUv.x + dUv.y;
             
-            pos.z += ripple * 0.5;
-            vElevation = ripple;
+            // Stepped waves
+            float wave = sin(dist * 80.0 - uTime * 10.0);
+            float steppedWave = step(0.5, fract(wave * 0.5 + 0.5));
+            
+            float pulse = steppedWave * exp(-dist * 8.0);
+            
+            pos.z += pulse * 0.6;
+            vElevation = pulse;
             
             gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
           }
@@ -217,14 +224,14 @@ const FluidSimulation = () => {
           
           void main() {
             vec3 baseColor = vec3(0.00, 0.00, 0.00); 
-            vec3 highlightColor = vec3(0.05, 0.05, 0.05); 
+            // Light up the circuit pulses
+            vec3 highlightColor = vec3(0.1, 0.15, 0.2); 
             
-            float mixFactor = (vElevation + 1.0) * 0.5;
-            vec3 finalColor = mix(baseColor, highlightColor, smoothstep(0.40, 0.60, mixFactor));
+            float mixFactor = vElevation;
+            vec3 finalColor = mix(baseColor, highlightColor, mixFactor);
             
-            // Output color with transparency:
-            // Base parts of the plane are completely transparent, ripples have some opacity
-            float alpha = smoothstep(0.45, 0.55, mixFactor) * 0.4;
+            // Only show opacity where there is a pulse
+            float alpha = mixFactor * 0.5;
             gl_FragColor = vec4(finalColor, alpha);
           }
         `}
@@ -235,12 +242,128 @@ const FluidSimulation = () => {
   );
 };
 
+const DataTopology = () => {
+  const pointsRef = useRef<THREE.Points>(null);
+  const linesRef = useRef<THREE.LineSegments>(null);
+
+  const particleCount = 400;
+
+  const { positions, colors } = useMemo(() => {
+    const pos = new Float32Array(particleCount * 3);
+    const col = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+      // Spread nodes in a 3D volume
+      pos[i * 3] = (Math.random() - 0.5) * 20;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 10 - 2; // Bias slightly away from camera
+
+      // React Blue base color #61DAFB (97, 218, 251)
+      col[i * 3] = 97 / 255;
+      col[i * 3 + 1] = 218 / 255;
+      col[i * 3 + 2] = 251 / 255;
+    }
+    return { positions: pos, colors: col };
+  }, []);
+
+  // Compute connections (lines) between nodes
+  const { linePositions, lineColors } = useMemo(() => {
+    const lPos: number[] = [];
+    const lCol: number[] = [];
+    const maxDistance = 3.5;
+
+    for (let i = 0; i < particleCount; i++) {
+      for (let j = i + 1; j < particleCount; j++) {
+        const dx = positions[i * 3] - positions[j * 3];
+        const dy = positions[i * 3 + 1] - positions[j * 3 + 1];
+        const dz = positions[i * 3 + 2] - positions[j * 3 + 2];
+        const distSq = dx * dx + dy * dy + dz * dz;
+
+        if (distSq < maxDistance * maxDistance) {
+          lPos.push(
+            positions[i * 3],
+            positions[i * 3 + 1],
+            positions[i * 3 + 2],
+            positions[j * 3],
+            positions[j * 3 + 1],
+            positions[j * 3 + 2],
+          );
+
+          const alpha = 1.0 - Math.sqrt(distSq) / maxDistance;
+          // Subtly colored lines, heavily faded
+          lCol.push(
+            (97 / 255) * alpha,
+            (218 / 255) * alpha,
+            (251 / 255) * alpha,
+            (97 / 255) * alpha,
+            (218 / 255) * alpha,
+            (251 / 255) * alpha,
+          );
+        }
+      }
+    }
+    return {
+      linePositions: new Float32Array(lPos),
+      lineColors: new Float32Array(lCol),
+    };
+  }, [positions]);
+
+  useFrame((state) => {
+    if (pointsRef.current && linesRef.current) {
+      const t = state.clock.elapsedTime * 0.1;
+      pointsRef.current.rotation.y = t * 0.5;
+      pointsRef.current.rotation.x = t * 0.2;
+      linesRef.current.rotation.y = t * 0.5;
+      linesRef.current.rotation.x = t * 0.2;
+
+      // Pulsate point sizes
+      const material = pointsRef.current.material as THREE.PointsMaterial;
+      material.size = 0.05 + Math.sin(state.clock.elapsedTime * 2) * 0.02;
+    }
+  });
+
+  return (
+    <group>
+      <points ref={pointsRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+          <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.06}
+          vertexColors
+          transparent
+          opacity={0.6}
+          sizeAttenuation
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+      <lineSegments ref={linesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[linePositions, 3]}
+          />
+          <bufferAttribute attach="attributes-color" args={[lineColors, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial
+          vertexColors
+          transparent
+          opacity={0.15}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </lineSegments>
+    </group>
+  );
+};
+
 const PhoneWireframe = () => {
   const groupRef = useRef<THREE.Group>(null);
 
   useFrame((state, delta) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.5;
+      groupRef.current.rotation.y += delta * 0.3;
     }
   });
 
@@ -249,13 +372,91 @@ const PhoneWireframe = () => {
       <mesh>
         <boxGeometry args={[2.5, 5, 0.2]} />
         <meshBasicMaterial
-          color="#333333"
+          color="#888888"
           wireframe
           transparent
-          opacity={0.2}
+          opacity={0.08}
         />
       </mesh>
     </group>
+  );
+};
+
+const JsiInspectorPanel = () => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const stats = [
+    {
+      title: ">_ REACT_NATIVE_SPECIALIZATION",
+      sub: "Zero-Latency JSI Bridges, Fabric",
+    },
+    {
+      title: ">_ iOS_DEEP_DIVE",
+      sub: "Swift, Metal, Native Optimization",
+    },
+    {
+      title: ">_ ANDROID_SDK",
+      sub: "Kotlin, Custom View Rendering",
+    },
+    {
+      title: ">_ PERFORMANCE_OPTIMIZATION",
+      sub: "120Hz, State Verification",
+    },
+    {
+      title: ">_ MOBILE_SECURITY",
+      sub: "Secure Enclave, Biometrics",
+    },
+    {
+      title: ">_ TECHNICAL_LEADERSHIP",
+      sub: "Architecture, Mentorship",
+    },
+  ];
+
+  return (
+    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 w-full max-w-[95%] md:max-w-[80%] lg:max-w-[60%] flex flex-col items-center pointer-events-auto">
+      <motion.div layout className="w-full flex justify-center">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="px-6 py-2 bg-white/5 backdrop-blur-2xl border border-white/20 rounded-full outline-none transition-all duration-300 hover:bg-white/10 hover:border-white/40 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+        >
+          <span className="font-mono text-[10px] sm:text-xs text-[#888888] tracking-widest uppercase transition-colors duration-300">
+            [ CORE_COMPETENCIES //{" "}
+            <span className={isOpen ? "text-[#CCFF00]" : "text-white"}>
+              {isOpen ? "VIEW" : "VIEW"}
+            </span>{" "}
+            ]
+          </span>
+        </button>
+      </motion.div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: "auto", marginTop: 24 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full overflow-hidden"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full p-6 bg-[#050505]/60 backdrop-blur-[80px] border border-white/10 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.8)]">
+              {stats.map((stat, idx) => (
+                <div
+                  key={idx}
+                  className="flex flex-col gap-1 p-4 bg-[#111111]/40 border border-white/5 rounded-2xl hover:bg-[#CCFF00]/5 hover:border-[#CCFF00]/20 transition-all duration-300 group"
+                >
+                  <h3 className="font-mono text-[10px] sm:text-[11px] font-bold text-[#E0E0E0] group-hover:text-[#CCFF00] tracking-widest uppercase transition-colors duration-300">
+                    {stat.title}
+                  </h3>
+                  <p className="font-mono text-[9px] text-[#888888] tracking-widest uppercase mt-2">
+                    {stat.sub}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -264,7 +465,7 @@ const MobileLanding = ({
 }: {
   onUnlock: (id?: number | null) => void;
 }) => {
-  const [isFluidOn, setIsFluidOn] = useState(true);
+  const [isJsiPhysicsOn, setIsJsiPhysicsOn] = useState(true);
 
   return (
     <motion.div
@@ -274,23 +475,37 @@ const MobileLanding = ({
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       className="relative w-full h-screen bg-[#000000] text-white overflow-hidden font-sans select-none"
     >
-      {/* 3D Background: Ghostly Wireframe Device & Liquid Ripple */}
+      {/* AMBIENT BACKGROUND GLOW */}
+      <motion.div
+        className="absolute inset-0 z-0 pointer-events-none"
+        animate={{
+          background: [
+            "radial-gradient(circle at 20% 30%, rgba(0, 255, 204, 0.08) 0%, rgba(0,0,0,0) 60%)",
+            "radial-gradient(circle at 80% 70%, rgba(204, 255, 0, 0.05) 0%, rgba(0,0,0,0) 60%)",
+            "radial-gradient(circle at 20% 30%, rgba(0, 255, 204, 0.08) 0%, rgba(0,0,0,0) 60%)",
+          ],
+        }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {/* 3D Background: Data Topology, Wireframe & JSI Bridge Physics */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <Canvas camera={{ position: [0, 0, 6] }}>
+        <Canvas camera={{ position: [0, 0, 8] }}>
           <ambientLight intensity={0.5} />
-          {isFluidOn && <FluidSimulation />}
+          {isJsiPhysicsOn && <JsiBridgePhysics />}
+          <DataTopology />
           <PhoneWireframe />
         </Canvas>
       </div>
-
-      {/* TOP SECTION: THE SPATIAL GLASS DOCK (NAVIGATION) */}
+      {/* HEAVY FROSTED GLASS OVERLAY */}
+      <div className="absolute inset-0 pointer-events-none z-10 backdrop-blur-[60px] bg-black/40" />
+      {/* TOP SECTION: THE PREMIUM GLASS DOCK (NAVIGATION) */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center w-full max-w-4xl px-4">
-        <div className="flex w-full items-center justify-between px-10 py-5 rounded-[2.5rem] border border-white/5 backdrop-blur-[40px] bg-[#111111]/20 shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-[#CCFF00]/50 group/dock">
+        <div className="flex w-full items-center justify-between px-10 py-5 rounded-[2.5rem] border border-white/30 backdrop-blur-3xl bg-white/20 shadow-[0_30px_60px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.4)] transition-all duration-300 hover:border-white/50 group/dock">
           {[
-            { id: null, label: "APP_LIBRARY", num: "01" },
-            { id: 991, label: "SYSTEM_SPECS", num: "02" },
-            { id: 6, label: "THE_ORIGIN", num: "03" },
-            { id: 992, label: "TERMINAL", num: "04" },
+            { id: null, label: "PROJECTS", num: "01" },
+            { id: 991, label: "EXPERTISE", num: "02" },
+            { id: 6, label: "BACKGROUND", num: "03" },
+            { id: 992, label: "CONTACT", num: "04" },
           ].map((item, idx) => (
             <button
               key={idx}
@@ -309,17 +524,17 @@ const MobileLanding = ({
           ))}
         </div>
       </div>
-
       {/* CENTER SECTION: THE HERO TYPOGRAPHY */}
-      <div className="absolute inset-0 flex flex-col justify-center z-10 w-full max-w-[95%] mx-auto pointer-events-none">
-        <div className="w-full flex-col flex items-center justify-center">
-          <span className="font-mono text-[10px] sm:text-xs tracking-[0.2em] md:tracking-[0.4em] uppercase text-white font-bold mb-6 opacity-90 text-center pointer-events-auto">
+      <div className="absolute inset-0 flex flex-col justify-center items-center z-10 w-full max-w-[85vw] lg:max-w-[65vw] mx-auto pointer-events-none">
+        <div className="w-full flex flex-col items-center justify-center gap-10 sm:gap-14">
+          <h2 className="font-mono text-[10px] sm:text-xs md:text-sm tracking-[0.4em] md:tracking-[0.5em] uppercase text-white font-bold opacity-100 text-center pointer-events-auto m-0 p-0 block">
             MOBILE ARCHITECTURE. 120HZ FLUIDITY. ZERO-LATENCY SYSTEMS.
-          </span>
+          </h2>
           <h1
-            className="text-[10vw] mt-10 sm:text-[9vw] md:text-[8vw] leading-[0.8] tracking-tight uppercase text-white text-center pointer-events-auto whitespace-nowrap"
+            className="w-full text-center leading-[0.9] tracking-tighter uppercase text-white pointer-events-auto whitespace-nowrap m-0 p-0 text-[14vw] sm:text-[12vw] lg:text-[10vw]"
             style={{
-              fontFamily: '"Impact", "Bebas Neue", "Arial Narrow", sans-serif',
+              fontFamily:
+                '"Impact", "Helvetica Now Display", "Arial Narrow", sans-serif',
               transform: "scaleY(1.6)",
               WebkitFontSmoothing: "antialiased",
             }}
@@ -328,35 +543,20 @@ const MobileLanding = ({
           </h1>
         </div>
       </div>
-
-      {/* BOTTOM SECTION: THE COMPETENCY TAGS (FILTER MENU) */}
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 w-full flex items-center justify-center pointer-events-auto px-4">
-        <div className="flex flex-wrap justify-center gap-2 lg:gap-3 font-sans text-[9px] sm:text-[10px] font-bold tracking-widest uppercase items-center text-center">
-          {["REACT NATIVE", "iOS", "ANDROID", "TYPESCRIPT", "REANIMATED"].map(
-            (skill, idx) => (
-              <button
-                key={skill}
-                className={`px-4 xl:px-6 py-2 cursor-pointer transition-colors duration-300 outline-none ${idx === 0 ? "bg-[#FFFFFF] text-[#000000]" : "bg-[#111111] text-[#888888] hover:text-[#FFFFFF] hover:bg-[#222222]"}`}
-              >
-                {skill}
-              </button>
-            ),
-          )}
-        </div>
-      </div>
-
+      {/* JSI INSPECTOR PANEL */}
+      <JsiInspectorPanel />
       {/* BOTTOM LEFT: THE PHYSICS TOGGLE */}
       <div className="absolute bottom-8 left-8 z-30 flex items-center gap-4 pointer-events-auto hover:opacity-100 opacity-70 transition-opacity duration-300">
         <button
-          onClick={() => setIsFluidOn(!isFluidOn)}
+          onClick={() => setIsJsiPhysicsOn(!isJsiPhysicsOn)}
           className={`w-12 h-12 rounded-full border flex items-center justify-center backdrop-blur-2xl transition-all duration-300 outline-none group
             ${
-              isFluidOn
+              isJsiPhysicsOn
                 ? "bg-[#111111]/40 border-[#CCFF00]/50 shadow-[0_0_15px_rgba(204,255,0,0.1)] hover:bg-[#CCFF00]/10 hover:border-[#CCFF00]"
                 : "bg-[#050505]/60 border-white/10 hover:border-white/30 hover:bg-white/5"
             }`}
         >
-          {isFluidOn ? (
+          {isJsiPhysicsOn ? (
             <svg
               width="24"
               height="24"
@@ -417,17 +617,18 @@ const MobileLanding = ({
         </button>
         <span className="font-mono text-[9px] sm:text-[10px] tracking-[0.2em] uppercase">
           <span
-            className={`${isFluidOn ? "text-[#CCFF00]" : "text-[#888888]"}`}
+            className={`${isJsiPhysicsOn ? "text-[#CCFF00]" : "text-[#888888]"}`}
           >
-            [ FLUID_SIM
+            [ JSI_PHYSICS
           </span>
           <span className="text-[#444444]"> // </span>
-          <span className={`${isFluidOn ? "text-white" : "text-[#888888]"}`}>
-            {isFluidOn ? "ON" : "OFF"} ]
+          <span
+            className={`${isJsiPhysicsOn ? "text-white" : "text-[#888888]"}`}
+          >
+            {isJsiPhysicsOn ? "ON" : "OFF"} ]
           </span>
         </span>
       </div>
-
       {/* BOTTOM RIGHT: FOOTER STATS */}
       <div className="absolute bottom-8 right-8 z-30 pointer-events-none">
         <span className="font-mono text-[9px] sm:text-[10px] tracking-[0.1em] text-[#888888] uppercase">
